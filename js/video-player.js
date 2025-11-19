@@ -109,27 +109,27 @@ export class VideoPlayer {
     }
 
     /**
-     * Increase playback speed
+     * Increase playback speed by 0.05
      * @returns {number} New speed
      */
     speedUp() {
-        const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
-        const current = this.video.playbackRate;
-        const next = speeds.find(s => s > current) || speeds[speeds.length - 1];
-        this.video.playbackRate = next;
-        return next;
+        let newSpeed = this.video.playbackRate + 0.05;
+        newSpeed = Math.min(4.0, newSpeed);
+        newSpeed = Math.round(newSpeed * 100) / 100; // Avoid floating point errors
+        this.video.playbackRate = newSpeed;
+        return newSpeed;
     }
 
     /**
-     * Decrease playback speed
+     * Decrease playback speed by 0.05
      * @returns {number} New speed
      */
     slowDown() {
-        const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
-        const current = this.video.playbackRate;
-        const prev = speeds.reverse().find(s => s < current) || speeds[speeds.length - 1];
-        this.video.playbackRate = prev;
-        return prev;
+        let newSpeed = this.video.playbackRate - 0.05;
+        newSpeed = Math.max(0.25, newSpeed);
+        newSpeed = Math.round(newSpeed * 100) / 100; // Avoid floating point errors
+        this.video.playbackRate = newSpeed;
+        return newSpeed;
     }
 
     /**

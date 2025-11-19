@@ -177,11 +177,26 @@ class SampleTubeApp {
     setupHotkeyUI() {
         const { hotkeyList } = this.elements;
 
+        // Colors matching waveform markers
+        const hotkeyColors = [
+            '#4a9eff', // 1 - blue
+            '#ff6b6b', // 2 - red
+            '#51cf66', // 3 - green
+            '#ffd43b', // 4 - yellow
+            '#cc5de8', // 5 - purple
+            '#ff922b', // 6 - orange
+            '#22b8cf', // 7 - cyan
+            '#f06595', // 8 - pink
+            '#20c997', // 9 - teal
+            '#a9e34b', // 0 - lime
+        ];
+
         // Create hotkey items
-        this.hotkeyController.keys.forEach(key => {
+        this.hotkeyController.keys.forEach((key, index) => {
             const item = document.createElement('div');
             item.className = 'hotkey-item';
             item.dataset.key = key;
+            item.style.setProperty('--hotkey-color', hotkeyColors[index]);
             item.innerHTML = `
                 <span class="hotkey-key">${key}</span>
                 <span class="hotkey-time">--:--</span>
@@ -227,7 +242,7 @@ class SampleTubeApp {
     }
 
     updateSpeedDisplay(speed) {
-        this.elements.speedDisplay.textContent = `${speed}x`;
+        this.elements.speedDisplay.textContent = `${speed.toFixed(2)}x`;
     }
 
     setupKeyboardShortcuts() {

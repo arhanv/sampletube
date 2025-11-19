@@ -224,7 +224,7 @@ header h1 {
 
 #speed-display {
     font-size: 0.8rem;
-    min-width: 36px;
+    min-width: 48px;
     text-align: center;
     color: #4a9eff;
 }
@@ -244,10 +244,22 @@ header h1 {
     border-radius: 4px;
     border: 2px solid transparent;
     transition: border-color 0.2s, background 0.2s;
+    position: relative;
+}
+
+.hotkey-item::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--hotkey-color, transparent);
 }
 
 .hotkey-item.assigned {
-    border-color: #4a9eff;
+    border-color: var(--hotkey-color, #4a9eff);
 }
 
 .hotkey-item.active {
@@ -267,7 +279,7 @@ header h1 {
 }
 
 .hotkey-item.assigned .hotkey-time {
-    color: #4a9eff;
+    color: #fff;
 }
 
 .hotkey-item.active .hotkey-time {
