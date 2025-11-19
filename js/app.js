@@ -7,6 +7,8 @@ import { AudioProcessor } from './audio-processor.js';
 import { VideoPlayer } from './video-player.js';
 import { HotkeyController } from './hotkey-controller.js';
 import { EssentiaDetector } from './detectors/essentia-detector.js';
+import { FileDetector } from './detectors/file-detector.js';
+import { WaveformVisualizer } from './ui/waveform.js';
 
 class SampleTubeApp {
     constructor() {
@@ -14,7 +16,15 @@ class SampleTubeApp {
         this.audioProcessor = new AudioProcessor();
         this.videoPlayer = null;
         this.hotkeyController = new HotkeyController();
-        this.detector = new EssentiaDetector();
+        this.waveform = null;
+
+        // Detectors
+        this.essentiaDetector = new EssentiaDetector();
+        this.fileDetector = new FileDetector();
+        this.currentDetector = this.essentiaDetector;
+
+        // Cached audio data for re-analysis
+        this.cachedAudioData = null;
 
         // DOM elements
         this.elements = {
@@ -23,12 +33,19 @@ class SampleTubeApp {
             fileSection: document.getElementById('file-section'),
             playerSection: document.getElementById('player-section'),
             videoPlayer: document.getElementById('video-player'),
+            waveformCanvas: document.getElementById('waveform-canvas'),
+            detectorType: document.getElementById('detector-type'),
+            jsonFileInput: document.getElementById('json-file-input'),
+            jsonFileLabel: document.getElementById('json-file-label'),
             statusText: document.getElementById('status-text'),
             analysisProgress: document.getElementById('analysis-progress'),
             hotkeyList: document.getElementById('hotkey-list'),
             btnDefault: document.getElementById('btn-default'),
             btnClear: document.getElementById('btn-clear'),
-            quantizeMode: document.getElementById('quantize-mode')
+            quantizeMode: document.getElementById('quantize-mode'),
+            btnSpeedDown: document.getElementById('btn-speed-down'),
+            btnSpeedUp: document.getElementById('btn-speed-up'),
+            speedDisplay: document.getElementById('speed-display')
         };
 
         // State
@@ -42,15 +59,22 @@ class SampleTubeApp {
         // Initialize video player
         this.videoPlayer = new VideoPlayer(this.elements.videoPlayer);
 
+        // Initialize waveform visualizer
+        this.waveform = new WaveformVisualizer(this.elements.waveformCanvas);
+
         // Set up event listeners
         this.setupFileInput();
         this.setupHotkeyUI();
         this.setupControls();
+        this.setupSpeedControls();
         this.setupKeyboardShortcuts();
+        this.setupDetectorSelector();
+        this.setupWaveform();
 
         // Connect hotkey controller callbacks
         this.hotkeyController.onAssignmentChange = (key, assignment) => {
             this.updateHotkeyUI(key, assignment);
+            this.updateWaveformHotkeys();
         };
 
         console.log('SampleTube initialized');
@@ -83,6 +107,69 @@ class SampleTubeApp {
             const files = e.dataTransfer.files;
             if (files.length > 0 && files[0].type.startsWith('video/')) {
                 this.loadVideo(files[0]);
+            }
+        });
+    }
+
+    setupDetectorSelector() {
+        const { detectorType, jsonFileInput, jsonFileLabel } = this.elements;
+
+        // Toggle JSON file input visibility
+        detectorType.addEventListener('change', (e) => {
+            if (e.target.value === 'json') {
+                jsonFileLabel.classList.remove('hidden');
+            } else {
+                jsonFileLabel.classList.add('hidden');
+                this.currentDetector = this.essentiaDetector;
+
+                // Re-analyze with Essentia if we have cached audio
+                if (this.cachedAudioData) {
+                    this.runDetection();
+                }
+            }
+        });
+
+        // JSON file selection
+        jsonFileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                try {
+                    await this.fileDetector.loadFromFile(file);
+                    this.currentDetector = this.fileDetector;
+
+                    // Update label to show filename
+                    jsonFileLabel.textContent = file.name.length > 15
+                        ? file.name.substring(0, 12) + '...'
+                        : file.name;
+
+                    // Run detection with loaded JSON
+                    if (this.cachedAudioData) {
+                        this.runDetection();
+                    }
+                } catch (error) {
+                    console.error('Error loading JSON:', error);
+                    this.setStatus(`Error loading JSON: ${error.message}`);
+                }
+            }
+        });
+    }
+
+    setupWaveform() {
+        const { waveformCanvas, videoPlayer } = this.elements;
+
+        // Click to seek
+        waveformCanvas.addEventListener('click', (e) => {
+            if (this.videoPlayer && this.waveform) {
+                const time = this.waveform.handleClick(e);
+                this.videoPlayer.seekTo(time);
+            }
+        });
+
+        // Update waveform on video time updates
+        videoPlayer.addEventListener('timeupdate', () => {
+            if (this.waveform) {
+                this.waveform.setCurrentTime(this.videoPlayer.getCurrentTime());
+                this.waveform.draw();
             }
         });
     }
@@ -121,6 +208,28 @@ class SampleTubeApp {
         });
     }
 
+    setupSpeedControls() {
+        const { btnSpeedDown, btnSpeedUp } = this.elements;
+
+        btnSpeedDown.addEventListener('click', () => {
+            if (this.videoPlayer) {
+                const speed = this.videoPlayer.slowDown();
+                this.updateSpeedDisplay(speed);
+            }
+        });
+
+        btnSpeedUp.addEventListener('click', () => {
+            if (this.videoPlayer) {
+                const speed = this.videoPlayer.speedUp();
+                this.updateSpeedDisplay(speed);
+            }
+        });
+    }
+
+    updateSpeedDisplay(speed) {
+        this.elements.speedDisplay.textContent = `${speed}x`;
+    }
+
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             // Ignore if typing in an input
@@ -137,9 +246,34 @@ class SampleTubeApp {
                 return;
             }
 
+            // Speed controls: [ and ]
+            if (e.key === '[') {
+                e.preventDefault();
+                if (this.videoPlayer) {
+                    const speed = this.videoPlayer.slowDown();
+                    this.updateSpeedDisplay(speed);
+                }
+                return;
+            }
+
+            if (e.key === ']') {
+                e.preventDefault();
+                if (this.videoPlayer) {
+                    const speed = this.videoPlayer.speedUp();
+                    this.updateSpeedDisplay(speed);
+                }
+                return;
+            }
+
             // Number keys 1-9, 0
-            const key = e.key;
-            if (this.hotkeyController.keys.includes(key)) {
+            // Use e.code to get physical key (Digit1, Digit0, etc.) since e.key changes with shift
+            const codeToKey = {
+                'Digit1': '1', 'Digit2': '2', 'Digit3': '3', 'Digit4': '4', 'Digit5': '5',
+                'Digit6': '6', 'Digit7': '7', 'Digit8': '8', 'Digit9': '9', 'Digit0': '0'
+            };
+            const key = codeToKey[e.code];
+
+            if (key && this.hotkeyController.keys.includes(key)) {
                 e.preventDefault();
 
                 if (!this.videoPlayer) return;
@@ -166,51 +300,71 @@ class SampleTubeApp {
             this.elements.fileSection.classList.add('hidden');
             this.elements.playerSection.classList.remove('hidden');
 
-            this.setStatus('Analyzing audio...');
+            // Initialize waveform size
+            this.waveform.resize();
 
-            // Start beat detection
-            await this.analyzeAudio(file);
+            this.setStatus('Extracting audio...');
+
+            // Extract audio
+            this.elements.analysisProgress.classList.remove('hidden');
+            this.cachedAudioData = await this.audioProcessor.extractAudio(file, (p) => {
+                this.setProgress(p * 0.5);
+            });
+
+            // Set waveform audio data
+            this.waveform.setAudioData(
+                this.cachedAudioData.channelData,
+                this.cachedAudioData.sampleRate,
+                this.cachedAudioData.duration
+            );
+
+            // Run beat detection
+            await this.runDetection();
 
         } catch (error) {
             console.error('Error loading video:', error);
             this.setStatus(`Error: ${error.message}`);
+            this.elements.analysisProgress.classList.add('hidden');
         }
     }
 
-    async analyzeAudio(file) {
-        if (this.isAnalyzing) return;
+    async runDetection() {
+        if (this.isAnalyzing || !this.cachedAudioData) return;
         this.isAnalyzing = true;
 
         this.elements.analysisProgress.classList.remove('hidden');
 
         try {
-            // Extract audio
-            this.setStatus('Extracting audio...');
-            const audioData = await this.audioProcessor.extractAudio(file, (p) => {
-                this.setProgress(p * 0.5); // 0-50%
-            });
-
             // Run beat detection
-            this.setStatus(`Detecting beats (${this.detector.name})...`);
-            const result = await this.detector.analyze(
-                audioData.channelData,
-                audioData.sampleRate,
+            this.setStatus(`Detecting beats (${this.currentDetector.name})...`);
+            const result = await this.currentDetector.analyze(
+                this.cachedAudioData.channelData,
+                this.cachedAudioData.sampleRate,
                 (p) => {
-                    this.setProgress(50 + p * 0.5); // 50-100%
+                    this.setProgress(50 + p * 0.5);
                 }
             );
 
             // Store results
             this.hotkeyController.setBeats(result.beats, result.downbeats);
 
+            // Update waveform
+            this.waveform.setBeats(result.beats, result.downbeats);
+
             // Set default hotkey assignments
             this.hotkeyController.setDefault(this.videoPlayer.getDuration());
+
+            // Update waveform with hotkey assignments
+            this.updateWaveformHotkeys();
+
+            // Draw waveform
+            this.waveform.draw();
 
             // Update status
             this.analysisComplete = true;
             this.setStatus(
-                `Ready - ${result.beats.length} beats detected, ` +
-                `~${result.bpm} BPM, confidence: ${result.confidence.toFixed(2)}`
+                `Ready - ${result.beats.length} beats, ` +
+                `~${result.bpm} BPM (${this.currentDetector.name})`
             );
 
         } catch (error) {
@@ -219,6 +373,13 @@ class SampleTubeApp {
         } finally {
             this.isAnalyzing = false;
             this.elements.analysisProgress.classList.add('hidden');
+        }
+    }
+
+    updateWaveformHotkeys() {
+        if (this.waveform) {
+            this.waveform.setHotkeyAssignments(this.hotkeyController.getAllAssignments());
+            this.waveform.draw();
         }
     }
 

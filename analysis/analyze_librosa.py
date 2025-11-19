@@ -16,9 +16,13 @@ import numpy as np
 
 def extract_audio_from_video(video_path, sr=22050):
     """Extract audio from video file using moviepy"""
-    from moviepy.editor import VideoFileClip
+    try:
+        # moviepy 2.0+ API
+        from moviepy import VideoFileClip
+    except ImportError:
+        # moviepy 1.x API
+        from moviepy.editor import VideoFileClip
     import tempfile
-    import soundfile as sf
     import os
 
     # Extract audio to temp file
@@ -27,7 +31,7 @@ def extract_audio_from_video(video_path, sr=22050):
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
         temp_path = f.name
 
-    clip.audio.write_audiofile(temp_path, fps=sr, verbose=False, logger=None)
+    clip.audio.write_audiofile(temp_path, fps=sr)
     clip.close()
 
     # Load audio

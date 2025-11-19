@@ -91,6 +91,48 @@ export class VideoPlayer {
     }
 
     /**
+     * Get current playback speed
+     * @returns {number}
+     */
+    getSpeed() {
+        return this.video.playbackRate;
+    }
+
+    /**
+     * Set playback speed
+     * @param {number} rate - Speed multiplier (0.25 to 4.0)
+     */
+    setSpeed(rate) {
+        // Clamp to valid range
+        rate = Math.max(0.25, Math.min(4.0, rate));
+        this.video.playbackRate = rate;
+    }
+
+    /**
+     * Increase playback speed
+     * @returns {number} New speed
+     */
+    speedUp() {
+        const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
+        const current = this.video.playbackRate;
+        const next = speeds.find(s => s > current) || speeds[speeds.length - 1];
+        this.video.playbackRate = next;
+        return next;
+    }
+
+    /**
+     * Decrease playback speed
+     * @returns {number} New speed
+     */
+    slowDown() {
+        const speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
+        const current = this.video.playbackRate;
+        const prev = speeds.reverse().find(s => s < current) || speeds[speeds.length - 1];
+        this.video.playbackRate = prev;
+        return prev;
+    }
+
+    /**
      * Format time as MM:SS.ms
      * @param {number} seconds
      * @returns {string}

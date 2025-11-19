@@ -27,8 +27,22 @@
             <section id="player-section" class="hidden">
                 <video id="video-player" controls></video>
 
+                <!-- Waveform Visualization -->
+                <div id="waveform-container">
+                    <canvas id="waveform-canvas"></canvas>
+                </div>
+
                 <!-- Analysis Status -->
                 <div id="analysis-status">
+                    <div id="detector-selector">
+                        <label for="detector-type">Detector:</label>
+                        <select id="detector-type">
+                            <option value="essentia">Essentia.js</option>
+                            <option value="json">Load JSON</option>
+                        </select>
+                        <input type="file" id="json-file-input" accept=".json" class="hidden">
+                        <label for="json-file-input" id="json-file-label" class="hidden">Choose JSON</label>
+                    </div>
                     <span id="status-text">Ready</span>
                     <progress id="analysis-progress" value="0" max="100" class="hidden"></progress>
                 </div>
@@ -45,6 +59,11 @@
                                 <option value="downbeat">Snap to Downbeat</option>
                                 <option value="off">No Snap</option>
                             </select>
+                            <div class="speed-controls">
+                                <button id="btn-speed-down" title="Decrease speed">-</button>
+                                <span id="speed-display">1.0x</span>
+                                <button id="btn-speed-up" title="Increase speed">+</button>
+                            </div>
                         </div>
                     </div>
                     <div id="hotkey-list">
@@ -59,6 +78,7 @@
                         <li><kbd>1</kbd>-<kbd>9</kbd>, <kbd>0</kbd> — Jump to assigned time (or assign if empty)</li>
                         <li><kbd>Shift</kbd>+<kbd>1</kbd>-<kbd>0</kbd> — Re-assign key to current time</li>
                         <li><kbd>Space</kbd> — Play/Pause</li>
+                        <li><kbd>[</kbd> / <kbd>]</kbd> — Decrease/Increase speed</li>
                     </ul>
                 </div>
             </section>
