@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:mtg.github.io)",
+      "WebFetch(domain:essentia.upf.edu)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
